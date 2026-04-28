@@ -1,155 +1,187 @@
 import axios from 'axios';
 
-// Определяем базовый URL в зависимости от окружения
-const getBaseUrl = () => {
-  // В production используем тот же домен
-  if (import.meta.env.PROD) {
-    return '/api';
+// Для Vercel используем прямые данные или мок-API
+const API_URL = import.meta.env.VITE_API_URL || 'https://your-backend-url.com/api';
+
+// Временное хранилище для тестирования
+let localProducts = [
+  {
+    id: 1,
+    name: "Беспроводные наушники",
+    description: "Bluetooth 5.0, активное шумоподавление, 30 часов работы",
+    price: 4990,
+    image: "https://picsum.photos/seed/headphones/400/400",
+    category: "Электроника",
+    is_active: true
+  },
+  {
+    id: 2,
+    name: "Умные часы",
+    description: "Фитнес-трекер с пульсометром, GPS, водонепроницаемые",
+    price: 8990,
+    image: "https://picsum.photos/seed/smartwatch/400/400",
+    category: "Электроника",
+    is_active: true
+  },
+  {
+    id: 3,
+    name: "Портативная колонка",
+    description: "Мощность 20W, защита IPX7, Bluetooth 5.2",
+    price: 3490,
+    image: "https://picsum.photos/seed/speaker/400/400",
+    category: "Аудио",
+    is_active: true
+  },
+  {
+    id: 4,
+    name: "Рюкзак городской",
+    description: "Водоотталкивающий материал, отделение для ноутбука 15.6\"",
+    price: 4290,
+    image: "https://picsum.photos/seed/backpack/400/400",
+    category: "Аксессуары",
+    is_active: true
+  },
+  {
+    id: 5,
+    name: "Power Bank 20000mAh",
+    description: "Быстрая зарядка 65W, USB-C и USB-A",
+    price: 2790,
+    image: "https://picsum.photos/seed/powerbank/400/400",
+    category: "Электроника",
+    is_active: true
+  },
+  {
+    id: 6,
+    name: "Кофе-машина автоматическая",
+    description: "15 бар давления, встроенный капучинатор",
+    price: 15990,
+    image: "https://picsum.photos/seed/coffee/400/400",
+    category: "Бытовая техника",
+    is_active: true
   }
-  // В development используем прокси или прямой URL
-  return import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+];
+
+let nextId = 7;
+
+// Проверяем, доступен ли реальный API
+const isApiAvailable = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/health`, { timeout: 2000 });
+    return response.data.status === 'ok';
+  } catch {
+    return false;
+  }
 };
 
-const api = axios.create({
-  baseURL: getBaseUrl(),
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  timeout: 10000, // 10 секунд таймаут
-});
-
-// Интерцептор для логирования запросов
-api.interceptors.request.use(
-  (config) => {
-    console.log(`API Request: ${config.method.toUpperCase()} ${config.url}`);
-    return config;
-  },
-  (error) => {
-    console.error('API Request Error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Интерцептор для обработки ответов
-api.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    console.error('API Response Error:', error.response || error.message);
-    
-    // Стандартизация ошибок
-    const customError = {
-      message: 'Произошла ошибка при запросе',
-      status: error.response?.status || 500,
-      data: error.response?.data || null,
-    };
-    
-    return Promise.reject(customError);
-  }
-);
-
-// Products API
-export const getProducts = async (params = {}) => {
+// Экспортируемые функции API
+export const getProducts = async () => {
   try {
-    const response = await api.get('/products', { params });
-    return response.data;
+    const apiAvailable = await isApiAvailable();
+    if (apiAvailable) {
+      const response = await axios.get(`${API_URL}/products`);
+      return response.data;
+    }
   } catch (error) {
-    console.error('getProducts error:', error);
-    throw error;
+    console.warn('API not available, using local data');
   }
+  return localProducts.filter(p => p.is_active);
 };
 
 export const getProduct = async (id) => {
   try {
-    const response = await api.get(`/products/${id}`);
-    return response.data;
+    const apiAvailable = await isApiAvailable();
+    if (apiAvailable) {
+      const response = await axios.get(`${API_URL}/products/${id}`);
+      return response.data;
+    }
   } catch (error) {
-    console.error('getProduct error:', error);
-    throw error;
+    console.warn('API not available, using local data');
   }
+  return localProducts.find(p => p.id === parseInt(id));
 };
 
 export const createProduct = async (productData) => {
   try {
-    const response = await api.post('/products', productData);
-    return response.data;
+    const apiAvailable = await isApiAvailable();
+    if (apiAvailable) {
+      const response = await axios.post(`${API_URL}/products`, productData);
+      return response.data;
+    }
   } catch (error) {
-    console.error('createProduct error:', error);
-    throw error;
+    console.warn('API not available, saving locally');
   }
+  
+  const newProduct = {
+    id: nextId++,
+    ...productData,
+    is_active: true,
+    created_at: new Date().toISOString()
+  };
+  localProducts.push(newProduct);
+  return newProduct;
 };
 
 export const updateProduct = async (id, productData) => {
   try {
-    const response = await api.put(`/products/${id}`, productData);
-    return response.data;
+    const apiAvailable = await isApiAvailable();
+    if (apiAvailable) {
+      const response = await axios.put(`${API_URL}/products/${id}`, productData);
+      return response.data;
+    }
   } catch (error) {
-    console.error('updateProduct error:', error);
-    throw error;
+    console.warn('API not available, updating locally');
   }
+  
+  const index = localProducts.findIndex(p => p.id === parseInt(id));
+  if (index !== -1) {
+    localProducts[index] = { ...localProducts[index], ...productData };
+    return localProducts[index];
+  }
+  throw new Error('Product not found');
 };
 
 export const deleteProduct = async (id) => {
   try {
-    const response = await api.delete(`/products/${id}`);
-    return response.data;
+    const apiAvailable = await isApiAvailable();
+    if (apiAvailable) {
+      const response = await axios.delete(`${API_URL}/products/${id}`);
+      return response.data;
+    }
   } catch (error) {
-    console.error('deleteProduct error:', error);
-    throw error;
+    console.warn('API not available, deleting locally');
   }
+  
+  localProducts = localProducts.filter(p => p.id !== parseInt(id));
+  return { success: true };
 };
 
-// Orders API
 export const createOrder = async (orderData) => {
-  try {
-    const response = await api.post('/orders', orderData);
-    return response.data;
-  } catch (error) {
-    console.error('createOrder error:', error);
-    throw error;
+  // Отправка данных через Telegram WebApp
+  const telegram = window.Telegram?.WebApp;
+  if (telegram?.sendData) {
+    telegram.sendData(JSON.stringify(orderData));
+    return { success: true, message: 'Order sent to bot' };
   }
+  
+  // Fallback: пробуем отправить на API
+  try {
+    const apiAvailable = await isApiAvailable();
+    if (apiAvailable) {
+      const response = await axios.post(`${API_URL}/orders`, orderData);
+      return response.data;
+    }
+  } catch (error) {
+    console.warn('Could not send order to API');
+  }
+  
+  return { success: false, message: 'Order service unavailable' };
 };
 
-export const getOrders = async (params = {}) => {
-  try {
-    const response = await api.get('/orders', { params });
-    return response.data;
-  } catch (error) {
-    console.error('getOrders error:', error);
-    throw error;
-  }
+export default {
+  getProducts,
+  getProduct,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  createOrder
 };
-
-export const getOrder = async (id) => {
-  try {
-    const response = await api.get(`/orders/${id}`);
-    return response.data;
-  } catch (error) {
-    console.error('getOrder error:', error);
-    throw error;
-  }
-};
-
-export const updateOrderStatus = async (id, status) => {
-  try {
-    const response = await api.patch(`/orders/${id}/status`, { status });
-    return response.data;
-  } catch (error) {
-    console.error('updateOrderStatus error:', error);
-    throw error;
-  }
-};
-
-// Healthcheck
-export const checkHealth = async () => {
-  try {
-    const response = await api.get('/health');
-    return response.data;
-  } catch (error) {
-    console.error('Health check failed:', error);
-    throw error;
-  }
-};
-
-export default api;

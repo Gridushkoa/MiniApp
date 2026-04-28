@@ -2,30 +2,18 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  plugins: [
-    react()
-  ],
-  server: {
-    host: true,
-    port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        secure: false,
-      }
-    }
-  },
+  plugins: [react()],
+  base: '/',
   build: {
     outDir: 'dist',
+    assetsDir: 'assets',
     sourcemap: false,
     minify: 'terser',
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          telegram: ['@twa-dev/sdk'],
-          utils: ['axios', 'uuid']
+          telegram: ['@twa-dev/sdk']
         }
       }
     }
